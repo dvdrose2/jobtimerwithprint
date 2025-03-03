@@ -1,0 +1,229 @@
+<html><head><base href="/">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Task & Job Timer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    margin: 0;
+    padding: 20px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .container {
+    background-color: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    padding: 30px;
+    width: 90%;
+    max-width: 600px;
+  }
+  h1 {
+    color: #333;
+    text-align: center;
+    margin-bottom: 30px;
+  }
+  .todo-section, .timer-section {
+    margin-bottom: 30px;
+  }
+  input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 16px;
+  }
+  button {
+    background-color: #4CAF50;
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    transition-duration: 0.4s;
+    cursor: pointer;
+    border-radius: 5px;
+  }
+  button:hover {
+    background-color: #45a049;
+  }
+  #todoList, #jobList {
+    list-style-type: none;
+    padding: 0;
+  }
+  #todoList li, #jobList li {
+    background-color: #f9f9f9;
+    margin-bottom: 10px;
+    padding: 10px;
+    border-radius: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .delete-btn {
+    background-color: #f44336;
+    padding: 5px 10px;
+    font-size: 14px;
+  }
+  .delete-btn:hover {
+    background-color: #d32f2f;
+  }
+  #timer {
+    font-size: 24px;
+    margin: 20px 0;
+    text-align: center;
+  }
+  .button-group {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <h1>Task & Job Timer</h1>
+    
+    <div class="todo-section">
+      <h2>Things to Do</h2>
+      <input type="text" id="todoInput" placeholder="Enter a task...">
+      <button onclick="addTodo()">Add Task</button>
+      <ul id="todoList"></ul>
+    </div>
+    
+    <div class="timer-section">
+      <h2>Job Timer</h2>
+      <input type="text" id="jobInput" placeholder="Enter job description...">
+      <div id="timer">00:00:00</div>
+      <button id="startBtn" onclick="startTimer()">Start</button>
+      <button id="stopBtn" onclick="stopTimer()" disabled>Stop</button>
+      <ul id="jobList"></ul>
+    </div>
+    
+    <div class="button-group">
+      <button onclick="saveJobs()">Save to PDF</button>
+      <button onclick="printJobs()">Print</button>
+    </div>
+  </div>
+
+  <script>
+    let timer;
+    let isRunning = false;
+    let startTime;
+    let elapsedTime = 0;
+    const jobList = [];
+
+    function addTodo() {
+      const todoInput = document.getElementById('todoInput');
+      const todoList = document.getElementById('todoList');
+      if (todoInput.value.trim() !== '') {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          ${todoInput.value}
+          <button class="delete-btn" onclick="this.parentElement.remove()">Delete</button>
+        `;
+        todoList.appendChild(li);
+        todoInput.value = '';
+      }
+    }
+
+    function startTimer() {
+      if (!isRunning) {
+        isRunning = true;
+        startTime = Date.now() - elapsedTime;
+        timer = setInterval(updateTimer, 1000);
+        document.getElementById('startBtn').disabled = true;
+        document.getElementById('stopBtn').disabled = false;
+      }
+    }
+
+    function stopTimer() {
+      if (isRunning) {
+        isRunning = false;
+        clearInterval(timer);
+        const jobInput = document.getElementById('jobInput');
+        const jobDescription = jobInput.value.trim();
+        if (jobDescription !== '') {
+          const duration = formatTime(elapsedTime);
+          const job = { description: jobDescription, duration: duration, endTime: new Date() };
+          jobList.push(job);
+          updateJobList();
+          jobInput.value = '';
+        }
+        elapsedTime = 0;
+        updateTimer();
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('stopBtn').disabled = true;
+      }
+    }
+
+    function updateTimer() {
+      const currentTime = isRunning ? Date.now() - startTime : elapsedTime;
+      document.getElementById('timer').textContent = formatTime(currentTime);
+      if (isRunning) {
+        elapsedTime = currentTime;
+      }
+    }
+
+    function formatTime(ms) {
+      const seconds = Math.floor((ms / 1000) % 60);
+      const minutes = Math.floor((ms / (1000 * 60)) % 60);
+      const hours = Math.floor(ms / (1000 * 60 * 60));
+      return [hours, minutes, seconds]
+        .map(v => v.toString().padStart(2, '0'))
+        .join(':');
+    }
+
+    function updateJobList() {
+      const jobListElement = document.getElementById('jobList');
+      jobListElement.innerHTML = '';
+      jobList.forEach((job, index) => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          ${job.description} - ${job.duration}
+          <button class="delete-btn" onclick="deleteJob(${index})">Delete</button>
+        `;
+        jobListElement.appendChild(li);
+      });
+    }
+
+    function deleteJob(index) {
+      jobList.splice(index, 1);
+      updateJobList();
+    }
+
+    function saveJobs() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.text("Job List", 20, 20);
+      let yPos = 40;
+      jobList.forEach((job, index) => {
+        doc.text(`${index + 1}. ${job.description} - ${job.duration}`, 20, yPos);
+        yPos += 10;
+      });
+      doc.save("job_list.pdf");
+    }
+
+    function printJobs() {
+      let printContent = "<h2>Job List</h2><ul>";
+      jobList.forEach(job => {
+        printContent += `<li>${job.description} - ${job.duration}</li>`;
+      });
+      printContent += "</ul>";
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write('<html><head><title>Print Jobs</title></head><body>');
+      printWindow.document.write(printContent);
+      printWindow.document.write('</body></html>');
+      printWindow.document.close();
+      printWindow.print();
+    }
+  </script>
+</body></html>
